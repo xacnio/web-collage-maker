@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Collage Maker</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Inter font for a modern look */
+        body {
+            font-family: "Inter", sans-serif;
+            background-color: #f0f4f8; /* Light background */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        #canvasContainer {
+            position: relative; /* For absolute positioning of upload overlays and rotation handle */
+            width: 100%;
+            max-width: 800px; /* Same max-width as canvas */
+            height: auto;
+            /* border-radius: 12px; */ /* Removed as per user request */
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            background-color: #ffffff; /* Default background if no image/color selected */
+        }
+        canvas {
+            border: 2px solid #cbd5e1; /* Light gray border for the canvas itself */
+            background-color: transparent; /* Canvas background will be managed by drawCollage */
+            /* border-radius: 12px; */ /* Removed as per user request */
+            touch-action: none; /* Prevent default touch actions like scrolling/zooming on page */
+            display: block; /* Remove extra space below canvas */
+        }
+        input[type="file"] {
+            display: none; /* Hide default file input */
+        }
+        .custom-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 20px;
+            cursor: pointer;
+            color: white;
+            border-radius: 8px;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            font-weight: 500;
+        }
+        .custom-button:hover {
+            transform: translateY(-1px);
+        }
+        .custom-button:active {
+            transform: translateY(0);
+        }
+
+        .button-indigo {
+            background-color: #4f46e5;
+        }
+        .button-indigo:hover {
+            background-color: #4338ca;
+        }
+        .button-purple {
+            background-color: #8b5cf6;
+        }
+        .button-purple:hover {
+            background-color: #7c3aed;
+        }
+        .button-emerald {
+            background-color: #10b981;
+        }
+        .button-emerald:hover {
+            background-color: #059669;
+        }
+        .button-red {
+            background-color: #ef4444;
+        }
+        .button-red:hover {
+            background-color: #dc2626;
+        }
+
+        /* Style for the range slider */
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #d1d5db; /* Light gray track */
+            border-radius: 5px;
+            outline: none;
+            opacity: 0.7;
+            -webkit-transition: .2s;
+            transition: opacity .2s;
+        }
+        input[type="range"]:hover {
+            opacity: 1;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #4f46e5; /* Indigo thumb */
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #4f46e5; /* Indigo thumb */
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Styles for the upload overlays */
+        .upload-overlay {
+            position: absolute;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(255, 255, 255, 0.8); /* Semi-transparent white */
+            border: 1px dashed #9ca3af; /* Dashed border */
+            /* border-radius: 8px; */ /* Removed as per user request */
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            z-index: 10; /* Ensure it's above the canvas */
+        }
+        .upload-overlay:hover {
+            background-color: rgba(255, 255, 255, 0.95);
+        }
+        .upload-overlay i {
+            font-size: 3rem; /* Large icon */
+            color: #4f46e5; /* Indigo color */
+        }
+
+        /* Rotation Handle */
+        .rotation-handle {
+            position: absolute;
+            background-color: #4f46e5; /* Indigo */
+            border: 2px solid white;
+            border-radius: 50%;
+            width: 30px; /* Slightly larger for easier interaction */
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: grab;
+            z-index: 20; /* Above overlays */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            user-select: none; /* Prevent text selection on the handle */
+            -webkit-user-drag: none; /* Prevent dragging on Webkit browsers */
+        }
+        .rotation-handle i {
+            color: white;
+            font-size: 1rem; /* Larger icon */
+            user-select: none; /* Prevent text selection on the icon */
+            -webkit-user-drag: none; /* Prevent dragging on Webkit browsers */
+        }
+
+        /* Style for the select dropdown */
+        .custom-select {
+            appearance: none; /* Remove default browser styling */
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-color: #ffffff;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 1rem;
+            color: #374151;
+            cursor: pointer;
+            outline: none;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        .custom-select:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4">
+
+    <h1 class="text-3xl font-bold text-gray-800 mb-6">Advanced Collage Maker</h1>
+
+    <!-- Layout Selection -->
+    <div class="flex flex-wrap justify-center gap-3 mb-6">
+        <span class="text-gray-700 font-medium mr-2">Collage Layout:</span>
+        <button id="layout3Btn" class="custom-button button-indigo px-4 py-2">3 Photos</button>
+        <button id="layout4Btn" class="custom-button button-indigo px-4 py-2">4 Photos</button>
+        <button id="layout5Btn" class="custom-button button-indigo px-4 py-2">5 Photos</button>
+        <button id="layout4GridBtn" class="custom-button button-indigo px-4 py-2">4 Photos (Grid)</button>
+    </div>
+
+    <!-- Canvas Aspect Ratio Selection -->
+    <div class="flex flex-wrap justify-center items-center gap-3 mb-6">
+        <label for="aspectRatioSelect" class="text-gray-700 font-medium mr-2">Canvas Aspect Ratio:</label>
+        <select id="aspectRatioSelect" class="custom-select">
+            <option value="0.75" selected>4:3 (Default)</option> <!-- 3 / 4 -->
+            <option value="1">1:1 (Square)</option> <!-- 1 / 1 -->
+            <option value="0.5625">16:9 (Widescreen)</option> <!-- 9 / 16 -->
+            <option value="1.7777777777777777">9:16 (Story)</option> <!-- 16 / 9 -->
+            <option value="0.6666666666666666">3:2 (Photographer's Standard)</option> <!-- 2 / 3 -->
+            <option value="0.8">5:4 (Photographer's Print)</option> <!-- 4 / 5 -->
+            <option value="0.5">2:1 (Banner)</option> <!-- 1 / 2 -->
+        </select>
+    </div>
+
+    <!-- Main Controls -->
+    <div class="flex flex-wrap justify-center gap-4 mb-6">
+        <label for="addPhotoInput" class="custom-button button-emerald">
+            <i class="fas fa-plus mr-2"></i> Add Photo
+        </label>
+        <input type="file" id="addPhotoInput" accept="image/*">
+
+        <label for="backgroundInput" class="custom-button button-purple">
+            <i class="fas fa-image mr-2"></i> Upload Background Image
+        </label>
+        <input type="file" id="backgroundInput" accept="image/*">
+    </div>
+
+    <!-- Sliders and Color Picker -->
+    <div class="flex flex-wrap justify-center items-center gap-4 mb-6 w-full max-w-4xl">
+        <div class="flex items-center gap-2">
+            <label for="bgColorPicker" class="text-gray-700 font-medium">Background Color:</label>
+            <input type="color" id="bgColorPicker" value="#f0f4f8" class="w-16 h-10 rounded-md border border-gray-300 cursor-pointer">
+        </div>
+
+        <div class="flex items-center gap-2 flex-grow">
+            <label for="borderThicknessSlider" class="text-gray-700 font-medium whitespace-nowrap">Border Thickness:</label>
+            <input type="range" id="borderThicknessSlider" min="0" max="50" value="10" class="flex-grow">
+            <span id="borderThicknessValue" class="text-gray-700 font-medium ml-2 min-w-[40px] text-right">10px</span>
+        </div>
+    </div>
+
+    <div id="canvasContainer" class="w-full max-w-4xl h-[500px] md:h-[600px] lg:h-[700px]">
+        <canvas id="collageCanvas" class="w-full h-full"></canvas>
+        <!-- Upload Overlays and Rotation Handle will be dynamically added here by JavaScript -->
+        <div id="rotationHandle" class="rotation-handle" style="display: none;">
+            <i class="fas fa-sync-alt"></i>
+        </div>
+    </div>
+
+    <div class="flex flex-wrap justify-center gap-4 mt-6">
+        <button id="deleteButton" class="custom-button button-red" style="display: none;">
+            <i class="fas fa-trash-alt mr-2"></i> Delete Selected Photo
+        </button>
+        <button id="exportButton" class="custom-button button-emerald">
+            <i class="fas fa-download mr-2"></i> Export Collage as PNG
+        </button>
+    </div>
+
+    <script>
+        // Get the canvas element and its 2D context
+        const canvas = document.getElementById('collageCanvas');
+        const ctx = canvas.getContext('2d');
+        const canvasContainer = document.getElementById('canvasContainer');
+
+        // Array representing each photo frame in the collage
+        let frames = [];
+
+        // Background image and color variables
+        let backgroundImg = null;
+        let backgroundColor = '#f0f4f8'; // Default background color
+
+        // Border thickness variable (in pixels)
+        let borderThickness = 10; // Default value
+
+        // State variables for interaction
+        let selectedFrame = null; // Currently selected frame
+        let isPanning = false; // Status of panning the image inside the frame
+        let isRotating = false; // Status of rotating the image inside the frame
+        let lastPanX, lastPanY; // Starting coordinates for panning
+        let initialPinchDistance = 0; // Starting distance for touch zoom
+        let initialPinchScale = 0; // Starting scale for touch zoom
+        let initialRotationAngle = 0; // Starting angle for rotation (relative to image center)
+        let currentUploadTargetFrame = null; // Stores which frame to upload an image to
+
+        // UI elements references
+        const addPhotoInput = document.getElementById('addPhotoInput');
+        const deleteButton = document.getElementById('deleteButton');
+        const bgColorPicker = document.getElementById('bgColorPicker');
+        const borderThicknessSlider = document.getElementById('borderThicknessSlider');
+        const borderThicknessValueSpan = document.getElementById('borderThicknessValue');
+        const rotationHandle = document.getElementById('rotationHandle');
+        const backgroundInput = document.getElementById('backgroundInput'); // Get background input
+
+        // Layout buttons
+        const layout3Btn = document.getElementById('layout3Btn');
+        const layout4Btn = document.getElementById('layout4Btn');
+        const layout5Btn = document.getElementById('layout5Btn');
+        const layout4GridBtn = document.getElementById('layout4GridBtn');
+
+        // Canvas Aspect Ratio select
+        const aspectRatioSelect = document.getElementById('aspectRatioSelect');
+
+        // Current selected layout
+        let currentLayoutName = 'layout3'; // Default layout
+
+        // Current canvas aspect ratio (height / width)
+        let currentAspectRatio = parseFloat(aspectRatioSelect.value); // Default to 4:3 (height / width) from select
+
+        /**
+         * Definitions of different collage layouts.
+         * Each layout specifies the proportions and relative positions of the frames it contains.
+         * frameX, frameY, frameWidth, frameHeight are defined as ratios between 0-1.
+         */
+        const layouts = {
+            layout3: [ // 1 long thin, 2 square
+                { type: 'longThin', x: 0, y: 0, w: 0.6, h: 1 },
+                { type: 'square', x: 0.6, y: 0, w: 0.4, h: 0.5 },
+                { type: 'square', x: 0.6, y: 0.5, w: 0.4, h: 0.5 }
+            ],
+            layout4: [ // 2x2 grid
+                { type: 'square', x: 0, y: 0, w: 0.5, h: 0.5 },
+                { type: 'square', x: 0.5, y: 0, w: 0.5, h: 0.5 },
+                { type: 'square', x: 0, y: 0.5, w: 0.5, h: 0.5 },
+                { type: 'square', x: 0.5, y: 0.5, w: 0.5, h: 0.5 }
+            ],
+            layout5: [ // 1 center, 4 corners
+                { type: 'square', x: 0.25, y: 0.25, w: 0.5, h: 0.5 }, // Center
+                { type: 'square', x: 0, y: 0, w: 0.25, h: 0.25 }, // Top left
+                { type: 'square', x: 0.75, y: 0, w: 0.25, h: 0.25 }, // Top right
+                { type: 'square', x: 0, y: 0.75, w: 0.25, h: 0.25 }, // Bottom left
+                { type: 'square', x: 0.75, y: 0.75, w: 0.25, h: 0.25 }  // Bottom right
+            ],
+            layout4Grid: [ // 4 photos, 1 large top, 3 small bottom
+                { type: 'wide', x: 0, y: 0, w: 1, h: 0.6 },
+                { type: 'square', x: 0, y: 0.6, w: 1/3, h: 0.4 },
+                { type: 'square', x: 1/3, y: 0.6, w: 1/3, h: 0.4 },
+                { type: 'square', x: 2/3, y: 0.6, w: 1/3, h: 0.4 }
+            ]
+        };
+
+        /**
+         * Sets canvas dimensions and calculates collage frame positions.
+         * Called when window size changes or page loads.
+         */
+        function resizeCanvas() {
+            const containerWidth = canvasContainer.clientWidth;
+            canvas.width = Math.min(800, containerWidth);
+            canvas.height = canvas.width * currentAspectRatio; // Use currentAspectRatio for height
+            
+            // Adjust container height to match canvas height
+            canvasContainer.style.height = `${canvas.height}px`;
+
+            const currentLayout = layouts[currentLayoutName];
+            const padding = borderThickness; // Use 'padding' for clarity in this context
+
+            // Calculate the max x+w and y+h to determine the grid size
+            let maxGridX = 0;
+            let maxGridY = 0;
+            currentLayout.forEach(def => {
+                maxGridX = Math.max(maxGridX, def.x + def.w);
+                maxGridY = Math.max(maxGridY, def.y + def.h);
+            });
+
+            // Calculate the number of internal padding lines
+            const internalHorizontalPaddings = (maxGridX > 0) ? Math.round(maxGridX) - 1 : 0;
+            const internalVerticalPaddings = (maxGridY > 0) ? Math.round(maxGridY) - 1 : 0;
+
+            // Total padding space to subtract from canvas dimensions
+            const totalPaddingSpaceX = (2 * padding) + (internalHorizontalPaddings * padding);
+            const totalPaddingSpaceY = (2 * padding) + (internalVerticalPaddings * padding);
+
+            const usableWidth = canvas.width - totalPaddingSpaceX;
+            const usableHeight = canvas.height - totalPaddingSpaceY;
+
+            // Calculate the base unit for width and height based on usable space and layout's max dimensions
+            const unitWidth = usableWidth / maxGridX;
+            const unitHeight = usableHeight / maxGridY;
+
+            frames.forEach((frameData, index) => {
+                const layoutDef = currentLayout[index];
+                if (!layoutDef) return;
+
+                frameData.frameX = padding + (layoutDef.x * unitWidth) + (layoutDef.x * padding);
+                frameData.frameY = padding + (layoutDef.y * unitHeight) + (layoutDef.y * padding);
+                frameData.frameWidth = layoutDef.w * unitWidth;
+                frameData.frameHeight = layoutDef.h * unitHeight;
+
+                if (frameData.img) {
+                    fitImageToFrame(frameData);
+                }
+                positionUploadOverlay(frameData);
+            });
+            drawCollage();
+            positionRotationHandle(); // Update rotation handle position after resize
+        }
+
+
+        /**
+         * Sets the position and size of the upload overlay element.
+         * @param {object} frame - The corresponding frame object.
+         */
+        function positionUploadOverlay(frame) {
+            const overlay = frame.overlayElement;
+            if (overlay) {
+                overlay.style.left = `${frame.frameX}px`;
+                overlay.style.top = `${frame.frameY}px`;
+                overlay.style.width = `${frame.frameWidth}px`;
+                overlay.style.height = `${frame.frameHeight}px`;
+                // Hide if there's an image, show otherwise
+                overlay.style.display = frame.img ? 'none' : 'flex';
+            }
+        }
+
+        /**
+         * Initializes the specified layout.
+         * @param {string} layoutName - The name of the layout to initialize.
+         */
+        function initLayout(layoutName) {
+            currentLayoutName = layoutName;
+            const layoutConfig = layouts[layoutName];
+
+            // Remove all existing upload overlays
+            frames.forEach(frame => {
+                if (frame.overlayElement && frame.overlayElement.parentNode) {
+                    frame.overlayElement.parentNode.removeChild(frame.overlayElement);
+                }
+            });
+
+            // Create new frame array
+            frames = layoutConfig.map((def, index) => {
+                const overlay = document.createElement('div');
+                overlay.className = 'upload-overlay';
+                overlay.innerHTML = `<label class="flex items-center justify-center w-full h-full cursor-pointer">
+                                        <i class="fas fa-plus-circle"></i>
+                                    </label>`;
+                canvasContainer.appendChild(overlay);
+
+                // Add a specific file input listener for each overlay
+                overlay.querySelector('label').addEventListener('click', (event) => {
+                    // Prevent default behavior of the label to avoid double file picker
+                    event.preventDefault();
+                    currentUploadTargetFrame = frames[index]; // Set the target frame
+                    addPhotoInput.click(); // Trigger the hidden file input
+                });
+
+                return {
+                    id: `frame${index}`, // Unique ID
+                    img: null,
+                    frameX: 0, frameY: 0, frameWidth: 0, frameHeight: 0,
+                    offsetX: 0, offsetY: 0, scale: 1,
+                    originalImgWidth: 0, originalImgHeight: 0,
+                    rotation: 0, // New rotation property
+                    minScale: 0, // New property for minimum zoom out
+                    overlayElement: overlay
+                };
+            });
+
+            // Reset selection and delete button
+            selectedFrame = null;
+            deleteButton.style.display = 'none';
+            rotationHandle.style.display = 'none'; // Hide rotation control
+
+            resizeCanvas(); // Resize and draw canvas with the new layout
+        }
+
+
+        // Set canvas size when page loads and window size changes
+        window.addEventListener('load', () => {
+            initLayout(currentLayoutName); // Initialize default layout
+            resizeCanvas();
+        });
+        window.addEventListener('resize', resizeCanvas);
+
+        // Single change event listener for addPhotoInput
+        addPhotoInput.addEventListener('change', (e) => {
+            if (currentUploadTargetFrame) {
+                loadImage(e, currentUploadTargetFrame);
+                currentUploadTargetFrame = null; // Reset target after operation
+            }
+            e.target.value = ''; // Clear input to allow selecting the same file again
+        });
+
+        // Listen for background image upload input
+        backgroundInput.addEventListener('change', loadBackgroundImage);
+
+
+        /**
+         * Loads the selected file into an Image object and assigns it to the relevant frame.
+         * @param {Event} e - Change event.
+         * @param {object} targetFrame - The frame object to which the image will be assigned.
+         */
+        function loadImage(e, targetFrame) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    targetFrame.img = img;
+                    targetFrame.originalImgWidth = img.width;
+                    targetFrame.originalImgHeight = img.height;
+                    targetFrame.rotation = 0; // Reset rotation when new image is loaded
+
+                    fitImageToFrame(targetFrame); // Fit image to frame
+                    positionUploadOverlay(targetFrame); // Hide upload overlay
+                    drawCollage(); // Redraw collage
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        /**
+         * Loads the background image.
+         * @param {Event} e - Change event.
+         */
+        function loadBackgroundImage(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    backgroundImg = img;
+                    backgroundColor = null; // Disable color background when image is loaded
+                    bgColorPicker.value = '#f0f4f8'; // Set color picker to default (visually)
+                    drawCollage(); // Redraw collage when background changes
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+            e.target.value = ''; // Clear input to allow selecting the same file again
+        }
+
+        /**
+         * Fits the image to the frame (cover method). This means the image completely covers the frame,
+         * but maintains its aspect ratio and excess parts may be cropped.
+         * @param {object} frame - Object representing the image frame.
+         */
+        function fitImageToFrame(frame) {
+            if (!frame.img) return;
+
+            const imgAspectRatio = frame.originalImgWidth / frame.originalImgHeight;
+            const frameAspectRatio = frame.frameWidth / frame.frameHeight;
+
+            let scale;
+            if (imgAspectRatio > frameAspectRatio) {
+                // Image is wider, fit height to frame, width overflows
+                scale = frame.frameHeight / frame.originalImgHeight;
+            } else {
+                // Image is taller or same ratio, fit width to frame, height overflows
+                scale = frame.frameWidth / frame.originalImgWidth;
+            }
+
+            frame.scale = scale;
+            frame.minScale = scale; // Save the calculated scale as minScale
+            // Center the image within the frame
+            frame.offsetX = (frame.frameWidth - (frame.originalImgWidth * scale)) / 2;
+            frame.offsetY = (frame.frameHeight - (frame.originalImgHeight * scale)) / 2;
+        }
+
+        /**
+         * Draws all images onto the canvas.
+         */
+        function drawCollage() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
+
+            // Draw background image or color
+            if (backgroundImg) {
+                // Draw background image in "cover" mode
+                const imgAspectRatio = backgroundImg.width / backgroundImg.height;
+                const canvasAspectRatio = canvas.width / canvas.height;
+
+                let sx, sy, sWidth, sHeight; // Source image coordinates
+                let dx, dy, dWidth, dHeight; // Destination canvas coordinates
+
+                if (imgAspectRatio > canvasAspectRatio) {
+                    // Image is wider than canvas, fit height, crop width
+                    sHeight = backgroundImg.height;
+                    sWidth = backgroundImg.height * canvasAspectRatio;
+                    sx = (backgroundImg.width - sWidth) / 2;
+                    sy = 0;
+                } else {
+                    // Image is taller than canvas, fit width, crop height
+                    sWidth = backgroundImg.width;
+                    sHeight = backgroundImg.width / canvasAspectRatio;
+                    sx = 0;
+                    sy = (backgroundImg.height - sHeight) / 2;
+                }
+
+                dx = 0;
+                dy = 0;
+                dWidth = canvas.width;
+                dHeight = canvas.height;
+
+                ctx.drawImage(backgroundImg, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight);
+
+            } else if (backgroundColor) {
+                ctx.fillStyle = backgroundColor;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            frames.forEach(frame => {
+                if (frame.img) {
+                    ctx.save(); // Save current canvas state
+
+                    // Create a clipping path for the frame
+                    ctx.beginPath();
+                    ctx.rect(frame.frameX, frame.frameY, frame.frameWidth, frame.frameHeight);
+                    ctx.clip(); // Clip everything outside this rectangle
+
+                    // Calculate drawing parameters for the image within the frame
+                    const scaledWidth = frame.originalImgWidth * frame.scale;
+                    const scaledHeight = frame.originalImgHeight * frame.scale;
+                    const imageCenterX = frame.frameX + frame.offsetX + scaledWidth / 2;
+                    const imageCenterY = frame.frameY + frame.offsetY + scaledHeight / 2;
+
+                    // Translate to center, rotate, then translate back
+                    ctx.translate(imageCenterX, imageCenterY);
+                    ctx.rotate(frame.rotation * Math.PI / 180); // Convert degrees to radians
+
+                    // Draw image relative to the new origin (center)
+                    ctx.drawImage(
+                        frame.img,
+                        -scaledWidth / 2,
+                        -scaledHeight / 2,
+                        scaledWidth,
+                        scaledHeight
+                    );
+
+                    ctx.restore(); // Restore canvas state (remove clipping and transformation)
+                }
+
+                // If this frame is selected, draw a selection border around it
+                if (frame === selectedFrame) {
+                    ctx.strokeStyle = '#4f46e5'; // Indigo color
+                    ctx.lineWidth = 3; // Thicker border
+                    ctx.strokeRect(frame.frameX, frame.frameY, frame.frameWidth, frame.frameHeight);
+                }
+            });
+        }
+
+        /**
+         * Adjusts mouse/touch coordinates relative to the canvas.
+         * @param {Event} e - Mouse or touch event.
+         * @returns {{x: number, y: number}} Canvas coordinates.
+         */
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            let clientX, clientY;
+
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
+            return {
+                x: clientX - rect.left,
+                y: clientY - rect.top
+            };
+        }
+
+        /**
+         * On mouse/touch down (start).
+         * @param {Event} e - Mouse or touch event.
+         */
+        canvas.addEventListener('mousedown', handleCanvasStart);
+        canvas.addEventListener('touchstart', handleCanvasStart);
+
+        // Separate event listeners for the rotation handle
+        rotationHandle.addEventListener('mousedown', handleRotationStart);
+        rotationHandle.addEventListener('touchstart', handleRotationStart);
+
+        function handleRotationStart(e) {
+            e.preventDefault(); // Prevent default browser drag/text selection behavior
+            e.stopPropagation(); // Prevent event from propagating to canvas
+            isRotating = true;
+            // selectedFrame should already be determined by the handle's visibility
+            const pos = getMousePos(e);
+            const imageCenterX = selectedFrame.frameX + selectedFrame.offsetX + (selectedFrame.originalImgWidth * selectedFrame.scale) / 2;
+            const imageCenterY = selectedFrame.frameY + selectedFrame.offsetY + (selectedFrame.originalImgHeight * selectedFrame.scale) / 2;
+            initialRotationAngle = Math.atan2(pos.y - imageCenterY, pos.x - imageCenterX) * 180 / Math.PI;
+
+            // Add global move and end listeners
+            document.addEventListener('mousemove', handleMove);
+            document.addEventListener('touchmove', handleMove);
+            document.addEventListener('mouseup', handleEnd);
+            document.addEventListener('touchend', handleEnd);
+        }
+
+        function handleCanvasStart(e) {
+            e.preventDefault(); // Prevent default touch/mouse behavior
+            const pos = getMousePos(e);
+            lastPanX = pos.x;
+            lastPanY = pos.y;
+
+            const previouslySelectedFrame = selectedFrame;
+            selectedFrame = null; // Reset previous selection
+            isRotating = false; // Exit rotation mode when clicking on canvas
+
+            // Check which frame was clicked (loop in reverse to check top-most frames first)
+            for (let i = frames.length - 1; i >= 0; i--) {
+                const frame = frames[i];
+                if (pos.x > frame.frameX && pos.x < frame.frameX + frame.frameWidth &&
+                    pos.y > frame.frameY && pos.y < frame.frameY + frame.frameHeight) {
+                    selectedFrame = frame;
+                    break;
+                }
+            }
+
+            if (selectedFrame && selectedFrame.img) {
+                if (e.touches && e.touches.length === 2) {
+                    initialPinchDistance = getPinchDistance(e);
+                    initialPinchScale = selectedFrame.scale;
+                    isPanning = false;
+                } else if (e.touches && e.touches.length === 1 || !e.touches) {
+                    isPanning = true;
+                }
+                deleteButton.style.display = 'inline-flex';
+                positionRotationHandle();
+
+                // Add global move and end listeners
+                document.addEventListener('mousemove', handleMove);
+                document.addEventListener('touchmove', handleMove);
+                document.addEventListener('mouseup', handleEnd);
+                document.addEventListener('touchend', handleEnd);
+
+            } else {
+                // If no frame is selected or no image, deselect and hide buttons
+                isPanning = false;
+                selectedFrame = null; // Deselect when clicking on empty space
+                deleteButton.style.display = 'none';
+                rotationHandle.style.display = 'none';
+
+                // Remove global move and end listeners
+                document.removeEventListener('mousemove', handleMove);
+                document.removeEventListener('touchmove', handleMove);
+                document.removeEventListener('mouseup', handleEnd);
+                document.removeEventListener('touchend', handleEnd);
+            }
+
+            // Redraw canvas if selection changed or empty space was clicked
+            if (selectedFrame !== previouslySelectedFrame || !selectedFrame) {
+                drawCollage();
+            }
+        }
+
+        /**
+         * On mouse/touch move.
+         * @param {Event} e - Mouse or touch event.
+         */
+        function handleMove(e) {
+            e.preventDefault(); // Prevent default touch/mouse behavior
+            if (!selectedFrame || !selectedFrame.img) return;
+
+            const pos = getMousePos(e);
+            const currentX = pos.x;
+            const currentY = pos.y;
+
+            if (isRotating) {
+                const imageCenterX = selectedFrame.frameX + selectedFrame.offsetX + (selectedFrame.originalImgWidth * selectedFrame.scale) / 2;
+                const imageCenterY = selectedFrame.frameY + selectedFrame.offsetY + (selectedFrame.originalImgHeight * selectedFrame.scale) / 2;
+                
+                const currentAngle = Math.atan2(currentY - imageCenterY, currentX - imageCenterX) * 180 / Math.PI;
+                
+                let angleDiff = currentAngle - initialRotationAngle;
+
+                if (angleDiff > 180) angleDiff -= 360;
+                if (angleDiff < -180) angleDiff += 360;
+
+                selectedFrame.rotation += angleDiff;
+                initialRotationAngle = currentAngle; // Update starting angle
+
+                selectedFrame.rotation = (selectedFrame.rotation % 360 + 360) % 360;
+
+            } else if (e.touches && e.touches.length === 2 && initialPinchDistance > 0) {
+                const currentPinchDistance = getPinchDistance(e);
+                const scaleFactor = currentPinchDistance / initialPinchDistance;
+                let newScale = initialPinchScale * scaleFactor;
+
+                // Minimum zoom out value: original scale that fills the frame
+                newScale = Math.max(selectedFrame.minScale, Math.min(newScale, 10));
+
+                const midPoint = getMidPoint(e);
+                const imgRelativeX = midPoint.x - selectedFrame.frameX - selectedFrame.offsetX;
+                const imgRelativeY = midPoint.y - selectedFrame.frameY - selectedFrame.offsetY;
+
+                selectedFrame.offsetX -= (imgRelativeX * (newScale / selectedFrame.scale)) - imgRelativeX;
+                selectedFrame.offsetY -= (imgRelativeY * (newScale / selectedFrame.scale)) - imgRelativeY;
+
+                selectedFrame.scale = newScale;
+
+                clampImageOffsets(selectedFrame);
+
+            } else if (isPanning) {
+                const dx = currentX - lastPanX;
+                const dy = currentY - lastPanY;
+
+                selectedFrame.offsetX += dx;
+                selectedFrame.offsetY += dy;
+
+                clampImageOffsets(selectedFrame);
+
+                lastPanX = currentX;
+                lastPanY = currentY;
+            }
+            positionRotationHandle();
+            drawCollage();
+        }
+
+        /**
+         * On mouse/touch up (end).
+         * @param {Event} e - Mouse or touch event.
+         */
+        function handleEnd(e) {
+            isPanning = false;
+            isRotating = false;
+            initialPinchDistance = 0;
+
+            // Remove global move and end listeners
+            document.removeEventListener('mousemove', handleMove);
+            document.removeEventListener('touchmove', handleMove);
+            document.removeEventListener('mouseup', handleEnd);
+            document.removeEventListener('touchend', handleEnd);
+        }
+
+        /**
+         * Calculates the distance between two touches (for pinch zoom).
+         * @param {TouchEvent} e - Touch event.
+         * @returns {number} Distance between touches.
+         */
+        function getPinchDistance(e) {
+            const touch1 = e.touches[0];
+            const touch2 = e.touches[1];
+            return Math.sqrt(Math.pow(touch2.clientX - touch1.clientX, 2) + Math.pow(touch2.clientY - touch1.clientY, 2));
+        }
+
+        /**
+         * Calculates the midpoint of two touches (for pinch center).
+         * @param {TouchEvent} e - Touch event.
+         * @returns {{x: number, y: number}} Midpoint in canvas coordinates.
+         */
+        function getMidPoint(e) {
+            const touch1 = e.touches[0];
+            const touch2 = e.touches[1];
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: ((touch1.clientX + touch2.clientX) / 2) - rect.left,
+                y: ((touch1.clientY + touch2.clientY) / 2) - rect.top
+            };
+        }
+
+        /**
+         * Clamps the image offsets within the frame so that the image does not completely go out of the frame.
+         * @param {object} frame - Object representing the image frame.
+         */
+        function clampImageOffsets(frame) {
+            const scaledWidth = frame.originalImgWidth * frame.scale;
+            const scaledHeight = frame.originalImgHeight * frame.scale;
+
+            // Horizontal clamping
+            if (scaledWidth < frame.frameWidth) {
+                frame.offsetX = (frame.frameWidth - scaledWidth) / 2;
+            } else {
+                if (frame.offsetX > 0) frame.offsetX = 0;
+                if (frame.offsetX + scaledWidth < frame.frameWidth) {
+                    frame.offsetX = frame.frameWidth - scaledWidth;
+                }
+            }
+
+            // Vertical clamping
+            if (scaledHeight < frame.frameHeight) {
+                frame.offsetY = (frame.frameHeight - scaledHeight) / 2;
+            } else {
+                if (frame.offsetY > 0) frame.offsetY = 0;
+                if (frame.offsetY + scaledHeight < frame.frameHeight) {
+                    frame.offsetY = frame.frameHeight - scaledHeight;
+                }
+            }
+        }
+
+        /**
+         * Zoom in/out with mouse wheel.
+         * @param {WheelEvent} e - Mouse wheel event.
+         */
+        canvas.addEventListener('wheel', handleWheelZoom);
+
+        function handleWheelZoom(e) {
+            e.preventDefault();
+            if (!selectedFrame || !selectedFrame.img) return;
+
+            const zoomFactor = 1.1;
+            const mousePos = getMousePos(e);
+
+            const imgRelativeX = mousePos.x - selectedFrame.frameX - selectedFrame.offsetX;
+            const imgRelativeY = mousePos.y - selectedFrame.frameY - selectedFrame.offsetY;
+
+            let newScale;
+            if (e.deltaY < 0) {
+                newScale = selectedFrame.scale * zoomFactor;
+            } else {
+                newScale = selectedFrame.scale / zoomFactor;
+            }
+
+            // Minimum zoom out value: original scale that fills the frame
+            newScale = Math.max(selectedFrame.minScale, Math.min(newScale, 10));
+
+            selectedFrame.offsetX -= (imgRelativeX * (newScale / selectedFrame.scale)) - imgRelativeX;
+            selectedFrame.offsetY -= (imgRelativeY * (newScale / selectedFrame.scale)) - imgRelativeY;
+
+            selectedFrame.scale = newScale;
+
+            clampImageOffsets(selectedFrame);
+
+            drawCollage();
+            positionRotationHandle();
+        }
+
+        // Listen to border thickness slider
+        borderThicknessSlider.addEventListener('input', (e) => {
+            borderThickness = parseInt(e.target.value);
+            borderThicknessValueSpan.textContent = `${borderThickness}px`;
+            resizeCanvas();
+            positionRotationHandle();
+        });
+
+        // Listen to background color picker
+        bgColorPicker.addEventListener('input', (e) => {
+            backgroundColor = e.target.value;
+            backgroundImg = null;
+            drawCollage();
+        });
+
+        /**
+         * Sets the position and controls the visibility of the rotation handle.
+         */
+        function positionRotationHandle() {
+            if (selectedFrame && selectedFrame.img) {
+                const handleSize = 30;
+                const offset = 15;
+
+                const handleX = selectedFrame.frameX + (selectedFrame.frameWidth / 2) - (handleSize / 2);
+                const handleY = selectedFrame.frameY - handleSize - offset;
+
+                rotationHandle.style.left = `${handleX}px`;
+                rotationHandle.style.top = `${handleY}px`;
+                rotationHandle.style.display = 'flex';
+            } else {
+                rotationHandle.style.display = 'none';
+            }
+        }
+
+        // Delete selected photo button
+        deleteButton.addEventListener('click', () => {
+            if (selectedFrame && selectedFrame.img) {
+                selectedFrame.img = null;
+                selectedFrame.offsetX = 0;
+                selectedFrame.offsetY = 0;
+                selectedFrame.scale = 1;
+                selectedFrame.originalImgWidth = 0;
+                selectedFrame.originalImgHeight = 0;
+                selectedFrame.rotation = 0;
+                positionUploadOverlay(selectedFrame);
+                selectedFrame = null;
+                deleteButton.style.display = 'none';
+                rotationHandle.style.display = 'none';
+                drawCollage();
+            }
+        });
+
+        /**
+         * Exports the collage as a PNG.
+         */
+        document.getElementById('exportButton').addEventListener('click', () => {
+            const tempSelectedFrame = selectedFrame;
+            selectedFrame = null;
+            deleteButton.style.display = 'none';
+            rotationHandle.style.display = 'none';
+            drawCollage();
+
+            const dataURL = canvas.toDataURL('image/png');
+            const a = document.createElement('a');
+            a.href = dataURL;
+            a.download = 'collage.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            selectedFrame = tempSelectedFrame;
+            if (selectedFrame && selectedFrame.img) {
+                deleteButton.style.display = 'inline-flex';
+                positionRotationHandle();
+            }
+            drawCollage();
+        });
+
+        // Event listeners for layout buttons
+        layout3Btn.addEventListener('click', () => initLayout('layout3'));
+        layout4Btn.addEventListener('click', () => initLayout('layout4'));
+        layout5Btn.addEventListener('click', () => initLayout('layout5'));
+        layout4GridBtn.addEventListener('click', () => initLayout('layout4Grid'));
+
+        // Event listener for canvas aspect ratio select
+        aspectRatioSelect.addEventListener('change', (e) => {
+            currentAspectRatio = parseFloat(e.target.value);
+            resizeCanvas();
+        });
+
+    </script>
+</body>
+</html>
